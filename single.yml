@@ -1,0 +1,13 @@
+box:
+- 5
+- 5
+- 5
+report_interval: 20
+temperature: 300
+simulation_steps: 100000
+timestep: 2.0
+components:
+  A: 
+    nmol: 500
+    sigma: 0.34
+    epsilon: 0.5
