@@ -61,7 +61,6 @@ class Sim(object):
         min_box_size = np.min(box_size)
         positions = np.random.uniform(low=-min_box_size/2, high=min_box_size/2, \
                                       size=(n_particles, 3))
-
         print("Number of particles in system:", system.getNumParticles())
         print("Number of positions provided:", len(positions))
 
@@ -73,17 +72,17 @@ class Sim(object):
 
         self.system = system
 
-#    def force_field(self):
-#        """
-#        Generates force field
-#
-#        """
-#        n_components = len(self.components)
-#
-#        # Lennard-Jones parameters
-#        for k, v in self.components:
-#            self.components[k]['sigma'] *= unit.nanometer
-#            self.components[k]['epsilon'] *= unit.kilojoule_per_mole
+    def force_field(self):
+        """
+        Generates force field
+
+        """
+        n_components = len(self.components)
+
+        # Lennard-Jones parameters
+        for k, v in self.components:
+            self.components[k]['sigma'] *= unit.nanometer
+            self.components[k]['epsilon'] *= unit.kilojoule_per_mole
 #
 #        # Mixing rules (Lorentz-Berthelot)
 #        sigma_AB = (sigma_A + sigma_B) / 2
