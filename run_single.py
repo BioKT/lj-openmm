@@ -7,4 +7,4 @@ simulation.read_input("single.yml")
 
 simulation.generate_system()
 
-#simulation.force_field()
+simulation.force_field()
