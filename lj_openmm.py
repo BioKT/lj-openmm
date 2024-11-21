@@ -83,25 +83,25 @@ class Sim(object):
         for k, v in self.components:
             self.components[k]['sigma'] *= unit.nanometer
             self.components[k]['epsilon'] *= unit.kilojoule_per_mole
-#
+
 #        # Mixing rules (Lorentz-Berthelot)
 #        sigma_AB = (sigma_A + sigma_B) / 2
 #        epsilon_AB = np.sqrt(epsilon_A * epsilon_B)        
 #
 #        # Create a nonbonded force for Lennard-Jones interactions
-#        nonbonded = mm.NonbondedForce()
-#        nonbonded.setNonbondedMethod(mm.NonbondedForce.CutoffPeriodic)
-#        nonbonded.setCutoffDistance(1.2 * sigma_B)
-#        nonbonded.setUseDispersionCorrection(True)
-#
-#        # Assign Lennard-Jones parameters
-#        for k, v in self.components:
-#            nonbonded.addParticle(0.0, v['sigma'] , v['epsilon'])  
-#
+        nonbonded = mm.NonbondedForce()
+        nonbonded.setNonbondedMethod(mm.NonbondedForce.CutoffPeriodic)
+        nonbonded.setCutoffDistance(1.2 * unit.kilojoule_per_mole)
+        nonbonded.setUseDispersionCorrection(True)
+
+        # Assign Lennard-Jones parameters
+        for k, v in self.components:
+            nonbonded.addParticle(0.0, v['sigma'] , v['epsilon'])  
+
 #        # Define cross-interactions explicitly for A-B pairs
 #        for i in range(n_components):
 #            for j in range(i + 1, n_components):
 #                if particle_types[i] != particle_types[j]:  # A-B interaction
 #                    nonbonded.addException(i, j, 0.0, sigma_AB, epsilon_AB)
 #
-#        self.system.addForce(nonbonded)
+        self.system.addForce(nonbonded)
