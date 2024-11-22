@@ -170,8 +170,34 @@ class Sim(object):
                                     density=True))
         self.simulation.reporters.append(app.DCDReporter('equilibration.dcd', 100))
 
-        # Equilibrate
+        # Equilibration in NPT
         self.simulation.context.setVelocitiesToTemperature(self.temperature)
         self.simulation.context.setPositions(positions)
-        print("Equilibrating...")
-        self.simulation.step(1000000)
+        print("# Equilibrating...")
+        self.simulation.step(self.equilibration_steps)
+
+        positions = self.simulation.context.getState(getPositions=True).getPositions()
+        with open("equilibrated.pdb", "w") as f:
+            PDBFile.writeFile(self.simulation.topology, positions, f)        
+
+        # Production run in NVT
+        print("# Production run...")
+
+        # Remove the MC barostat
+        forces = self.simulation.system.getForces()
+        for c, f in enumerate(forces):
+            if isinstance(f, mm.MonteCarloBarostat):
+                self.simulation.system.removeForce(c)
+
+        self.simulation.reporters = []
+        self.simulation.reporters.append(app.StateDataReporter("production.csv", 
+                                self.report_interval, \
+                                step=True, potentialEnergy=True, temperature=True, \
+                                density=True))
+        self.simulation.reporters.append(app.DCDReporter('production.dcd', \
+                                self.report_interval))
+
+        self.simulation.step(self.production_steps)
+        positions = self.simulation.context.getState(getPositions=True).getPositions()
+        with open("final.pdb", "w") as f:
+            PDBFile.writeFile(self.simulation.topology, positions, f)
