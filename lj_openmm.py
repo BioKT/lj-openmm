@@ -1,6 +1,6 @@
 
 import numpy as np
-import sys, yaml
+import sys, itertools, yaml
 
 import openmm as mm
 from openmm import app
@@ -111,17 +111,21 @@ class Sim(object):
         # Define cross-interactions explicitly for A-B pairs
         if len(self.components) > 1:
             print ("# Defining cross interaction terms")
-            for k,v in self.components.items():
-                for kk,vv in self.components.items():
-                    if v != vv:
-                        # Mixing rules (Lorentz-Berthelot)
-                        sigma = (v['sigma'] + vv['sigma'])/2
-                        epsilon = np.sqrt(v['sigma'] * vv['sigma'])
-                        for i in range(v['nmol']):
-                            for j in range(vv['nmol']):
-                                jj = v['nmol'] + j
-                                nonbonded.addException(i, jj, 0.0, sigma, epsilon)
-
+            allkeys = self.components.keys()
+            for k,kk in itertools.combinations(allkeys, 2):
+                print (k,kk)
+                # Mixing rules (Lorentz-Berthelot)
+                sigma = (self.components[k]['sigma'] + self.components[kk]['sigma'])/2
+                epsilon = np.sqrt(self.components[k]['epsilon'] * self.components[kk]['epsilon'])
+                print (sigma, epsilon)
+                for i in range(self.components[k]['nmol']):
+                    for j in range(self.components[kk]['nmol']):
+                        jj = self.components[k]['nmol'] + j
+                        try:
+                            nonbonded.addException(i, jj, 0.0, sigma, epsilon)
+                        except Exception as e:
+                            print (e)
+                            sys.exit()
         self.system.addForce(nonbonded)
         print ("# Generated force field")
 
@@ -137,10 +141,12 @@ class Sim(object):
             platform = mm.Platform.getPlatformByName('CPU')
             print ("# CUDA Platform not available; running on CPU")
 
-        self.system.addForce(mm.MonteCarloBarostat(self.pressure * unit.bar,\
-                                    self.temperature * unit.kelvin))
+        if self.pressure:
+            self.system.addForce(mm.MonteCarloBarostat(self.pressure * unit.bar,\
+                                self.temperature * unit.kelvin))
+            
         integrator = mm.LangevinIntegrator(self.temperature * unit.kelvin, \
-                                    1/unit.picosecond, self.timestep)
+                                1/unit.picosecond, self.timestep)
         simulation = app.Simulation(self.topology, self.system, integrator, platform)
 
         # Set initial positions
@@ -167,34 +173,37 @@ class Sim(object):
             PDBFile.writeFile(self.simulation.topology, positions, f)
 
         self.simulation.reporters.append(app.StateDataReporter(froot + "_equil.csv", \
-                        100, step=True, potentialEnergy=True, temperature=True, \
+                        100, time=True, potentialEnergy=True, temperature=True, \
                         density=True))
         self.simulation.reporters.append(app.DCDReporter(froot + \
                             '_equil.dcd', 100))
 
-        # Equilibration in NPT
-        self.simulation.context.setVelocitiesToTemperature(self.temperature)
-        self.simulation.context.setPositions(positions)
-        print("# Equilibrating...")
-        self.simulation.step(self.equilibration_steps)
+        if self.pressure:
+            # Equilibration in NPT
+            self.simulation.context.setVelocitiesToTemperature(self.temperature)
+            self.simulation.context.setPositions(positions)
+            print("# Equilibrating...")
+            self.simulation.step(self.equilibration_steps)
 
-        positions = self.simulation.context.getState(getPositions=True).getPositions()
-        with open(froot + "_equil.pdb", "w") as f:
-            PDBFile.writeFile(self.simulation.topology, positions, f)
+            positions = self.simulation.context.getState(getPositions=True).getPositions()
+            with open(froot + "_equil.pdb", "w") as f:
+                PDBFile.writeFile(self.simulation.topology, positions, f)
+
+        # Remove the MC barostat
+        if self.pressure:
+            forces = self.simulation.system.getForces()
+            for c, f in enumerate(forces):
+                if isinstance(f, mm.MonteCarloBarostat):
+                    self.simulation.system.removeForce(c)
+
 
         # Production run in NVT
         print("# Production run...")
 
-        # Remove the MC barostat
-        forces = self.simulation.system.getForces()
-        for c, f in enumerate(forces):
-            if isinstance(f, mm.MonteCarloBarostat):
-                self.simulation.system.removeForce(c)
-
         self.simulation.reporters = []
         self.simulation.reporters.append(app.StateDataReporter(froot + "_prod.csv", 
-                            self.report_interval, step=True, potentialEnergy=True, \
-                            temperature=True, pressure=True))
+                            self.report_interval, time=True, potentialEnergy=True, \
+                            temperature=True, density=True))
         self.simulation.reporters.append(app.DCDReporter(froot + '_prod.dcd', \
                             self.report_interval))
 
