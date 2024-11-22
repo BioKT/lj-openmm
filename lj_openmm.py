@@ -55,7 +55,7 @@ class Sim(object):
         for k,v in self.components.items():
             n_particles += v['nmol'] 
             for _ in range(v['nmol']):
-                system.addParticle(v['mass'] * unit.dalton)  
+                system.addParticle(v['mass'] * unit.dalton)
         print("# Number of particles in system:", system.getNumParticles())
 
         # Define periodic box vectors
@@ -84,10 +84,6 @@ class Sim(object):
         # Generate random positions
         box_size = self.box
         topology.setPeriodicBoxVectors(box_size * unit.nanometer * np.eye(3))
-        print (topology.getUnitCellDimensions())
-
-        topology.setPeriodicBoxVectors(box_size * unit.nanometer * np.identity(3))
-        print (topology.getUnitCellDimensions())
 
         self.topology = topology
 
@@ -99,11 +95,7 @@ class Sim(object):
         # Lennard-Jones parameters
         for k, v in self.components.items():
             self.components[k]['sigma'] *= unit.nanometer
-            self.components[k]['epsilon'] *= unit.kilojoule_per_mole
-
-#        # Mixing rules (Lorentz-Berthelot)
-#        sigma_AB = (sigma_A + sigma_B) / 2
-#        epsilon_AB = np.sqrt(epsilon_A * epsilon_B)        
+            self.components[k]['epsilon'] *= unit.kilojoule_per_mole 
 
         # Create a nonbonded force for Lennard-Jones interactions
         nonbonded = mm.NonbondedForce()
@@ -112,16 +104,24 @@ class Sim(object):
         nonbonded.setUseDispersionCorrection(True)
 
         # Assign Lennard-Jones parameters
-        for k, v in self.components.items():
+        for k,v in self.components.items():
             for i in range(v['nmol']):
-                nonbonded.addParticle(0.0, v['sigma'] , v['epsilon'])  
+                nonbonded.addParticle(0.0, v['sigma'] , v['epsilon'])
 
-#        # Define cross-interactions explicitly for A-B pairs
-#        for i in range(n_components):
-#            for j in range(i + 1, n_components):
-#                if particle_types[i] != particle_types[j]:  # A-B interaction
-#                    nonbonded.addException(i, j, 0.0, sigma_AB, epsilon_AB)
-#
+        # Define cross-interactions explicitly for A-B pairs
+        if len(self.components) > 1:
+            print ("# Defining cross interaction terms")
+            for k,v in self.components.items():
+                for kk,vv in self.components.items():
+                    if v != vv:
+                        # Mixing rules (Lorentz-Berthelot)
+                        sigma = (v['sigma'] + vv['sigma'])/2
+                        epsilon = np.sqrt(v['sigma'] * vv['sigma'])
+                        for i in range(v['nmol']):
+                            for j in range(vv['nmol']):
+                                jj = v['nmol'] + j
+                                nonbonded.addException(i, jj, 0.0, sigma, epsilon)
+
         self.system.addForce(nonbonded)
         print ("# Generated force field")
 
@@ -131,11 +131,11 @@ class Sim(object):
         """
         # Simulation setup
         try:
-            platform = mm.Platform.getPlatformByName('CUDA')  
-            print ("# Running on GPU") 
+            platform = mm.Platform.getPlatformByName('CUDA')
+            print ("# Running on GPU")
         except Exception as e:
             platform = mm.Platform.getPlatformByName('CPU')
-            print ("# CUDA Platform not available; running on CPU") 
+            print ("# CUDA Platform not available; running on CPU")
 
         self.system.addForce(mm.MonteCarloBarostat(self.pressure * unit.bar,\
                                     self.temperature * unit.kelvin))
@@ -158,17 +158,19 @@ class Sim(object):
 
         """
         # Minimize energy
-        print("Minimizing energy...")
+        print("# Minimizing energy...")
         self.simulation.minimizeEnergy()
 
         positions = self.simulation.context.getState(getPositions=True).getPositions()
-        with open("minimized.pdb", "w") as f:
+        froot = self.output_name
+        with open(froot + "_min.pdb", "w") as f:
             PDBFile.writeFile(self.simulation.topology, positions, f)
 
-        self.simulation.reporters.append(app.StateDataReporter("equilibration.csv", 100, \
-                                step=True, potentialEnergy=True, temperature=True, \
-                                    density=True))
-        self.simulation.reporters.append(app.DCDReporter('equilibration.dcd', 100))
+        self.simulation.reporters.append(app.StateDataReporter(froot + "_equil.csv", \
+                        100, step=True, potentialEnergy=True, temperature=True, \
+                        density=True))
+        self.simulation.reporters.append(app.DCDReporter(froot + \
+                            '_equil.dcd', 100))
 
         # Equilibration in NPT
         self.simulation.context.setVelocitiesToTemperature(self.temperature)
@@ -177,8 +179,8 @@ class Sim(object):
         self.simulation.step(self.equilibration_steps)
 
         positions = self.simulation.context.getState(getPositions=True).getPositions()
-        with open("equilibrated.pdb", "w") as f:
-            PDBFile.writeFile(self.simulation.topology, positions, f)        
+        with open(froot + "_equil.pdb", "w") as f:
+            PDBFile.writeFile(self.simulation.topology, positions, f)
 
         # Production run in NVT
         print("# Production run...")
@@ -190,14 +192,13 @@ class Sim(object):
                 self.simulation.system.removeForce(c)
 
         self.simulation.reporters = []
-        self.simulation.reporters.append(app.StateDataReporter("production.csv", 
-                                self.report_interval, \
-                                step=True, potentialEnergy=True, temperature=True, \
-                                density=True))
-        self.simulation.reporters.append(app.DCDReporter('production.dcd', \
-                                self.report_interval))
+        self.simulation.reporters.append(app.StateDataReporter(froot + "_prod.csv", 
+                            self.report_interval, step=True, potentialEnergy=True, \
+                            temperature=True, pressure=True))
+        self.simulation.reporters.append(app.DCDReporter(froot + '_prod.dcd', \
+                            self.report_interval))
 
         self.simulation.step(self.production_steps)
         positions = self.simulation.context.getState(getPositions=True).getPositions()
-        with open("final.pdb", "w") as f:
+        with open(froot + "_final.pdb", "w") as f:
             PDBFile.writeFile(self.simulation.topology, positions, f)
