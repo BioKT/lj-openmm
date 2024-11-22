@@ -1,13 +1,16 @@
 box:
-- 5
-- 5
-- 5
+- 10 
+- 10
+- 10
 report_interval: 20
+pressure: 1
 temperature: 300
-simulation_steps: 100000
-timestep: 2.0
+equilibration_steps: 500000
+simulation_steps: 1000000
+timestep: 1
 components:
   A: 
     nmol: 500
-    sigma: 0.34
-    epsilon: 0.5
+    mass: 100000
+    sigma: 0.5
+    epsilon: 10

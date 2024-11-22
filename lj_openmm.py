@@ -108,7 +108,7 @@ class Sim(object):
         # Create a nonbonded force for Lennard-Jones interactions
         nonbonded = mm.NonbondedForce()
         nonbonded.setNonbondedMethod(mm.NonbondedForce.CutoffPeriodic)
-        nonbonded.setCutoffDistance(1. * unit.nanometer)
+        nonbonded.setCutoffDistance(1.5 * unit.nanometer)
         nonbonded.setUseDispersionCorrection(True)
 
         # Assign Lennard-Jones parameters

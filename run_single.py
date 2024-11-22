@@ -5,6 +5,12 @@ simulation = lj_openmm.Sim()
 
 simulation.read_input("single.yml")
 
-simulation.generate_system()
+simulation.make_system()
+
+simulation.make_topology()
 
 simulation.force_field()
+
+simulation.make_simulation()
+
+simulation.run()
