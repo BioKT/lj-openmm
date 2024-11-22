@@ -42,7 +42,7 @@ class Sim(object):
         for k,v in config.items():
             setattr(self, k, v)
 
-    def generate_system(self):
+    def create_system(self):
         """
         Add particles to the system
 
@@ -72,6 +72,30 @@ class Sim(object):
 
         self.system = system
 
+    def create_topology(self):
+        """
+        Creates topology
+
+        """
+        topology = app.Topology()
+        chain = topology.addChain()
+
+        # Define particle types and names
+        for k,v in self.components.items():
+            residue = topology.addResidue("Particle", chain)
+            for i in range(v['nmol']):
+                atom_name = f"{ptype}{i+1}"  # Example: "A_1", "B_2", etc.
+                topology.addAtom(atom_name, app.Element.getByAtomicNumber(1), residue)
+
+        topology.setPeriodicBoxVectors(box_size * unit.nanometer * np.identity(3))
+        print (topology.getUnitCellDimensions())
+
+        # Generate random positions
+        box_size = self.box
+        topology.setPeriodicBoxVectors(box_size * unit.nanometer * np.eye(3))
+        print (topology.getUnitCellDimensions())
+        self.topology = topology
+
     def force_field(self):
         """
         Generates force field
@@ -94,7 +118,8 @@ class Sim(object):
 
         # Assign Lennard-Jones parameters
         for k, v in self.components.items():
-            nonbonded.addParticle(0.0, v['sigma'] , v['epsilon'])  
+            for i in range(v['nmol']):
+                nonbonded.addParticle(0.0, v['sigma'] , v['epsilon'])  
 
 #        # Define cross-interactions explicitly for A-B pairs
 #        for i in range(n_components):
@@ -104,5 +129,3 @@ class Sim(object):
 #
         self.system.addForce(nonbonded)
         print ("# Generated force field")
-
-    def configure_dynamics(self):    

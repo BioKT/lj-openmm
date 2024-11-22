@@ -80,7 +80,7 @@ system.addForce(nonbonded)
 integrator = mm.LangevinIntegrator(temperature, 1/unit.picosecond, timestep)
 
 # Simulation setup
-platform = mm.Platform.getPlatformByName('CUDA')  # Use CPU for simplicity
+platform = mm.Platform.getPlatformByName('CPU')  # Use CPU for simplicity
 
 topology = app.Topology()
 chain = topology.addChain()
