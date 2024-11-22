@@ -1,3 +1,5 @@
-*dcd
-*chk
+*.dcd
+*.chk
+*.csv
+*.pdb
 __pycache__/*
