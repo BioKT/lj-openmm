@@ -8,9 +8,10 @@ temperature: 300
 equilibration_steps: 200000
 production_steps: 1000000
 timestep: 1
+output_name: 'lj_single'
 components:
   A: 
     nmol: 500
     mass: 100000
     sigma: 0.5
-    epsilon: 6
+    epsilon: 4
