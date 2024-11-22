@@ -42,7 +42,7 @@ class Sim(object):
         for k,v in config.items():
             setattr(self, k, v)
 
-    def create_system(self):
+    def make_system(self):
         """
         Add particles to the system
 
@@ -72,7 +72,7 @@ class Sim(object):
 
         self.system = system
 
-    def create_topology(self):
+    def make_topology(self):
         """
         Creates topology
 
@@ -84,16 +84,17 @@ class Sim(object):
         for k,v in self.components.items():
             residue = topology.addResidue("Particle", chain)
             for i in range(v['nmol']):
-                atom_name = f"{ptype}{i+1}"  # Example: "A_1", "B_2", etc.
+                atom_name = f"{k}{i+1}"  # Example: "A_1", "B_2", etc.
                 topology.addAtom(atom_name, app.Element.getByAtomicNumber(1), residue)
-
-        topology.setPeriodicBoxVectors(box_size * unit.nanometer * np.identity(3))
-        print (topology.getUnitCellDimensions())
 
         # Generate random positions
         box_size = self.box
         topology.setPeriodicBoxVectors(box_size * unit.nanometer * np.eye(3))
         print (topology.getUnitCellDimensions())
+
+        topology.setPeriodicBoxVectors(box_size * unit.nanometer * np.identity(3))
+        print (topology.getUnitCellDimensions())
+
         self.topology = topology
 
     def force_field(self):
@@ -129,3 +130,35 @@ class Sim(object):
 #
         self.system.addForce(nonbonded)
         print ("# Generated force field")
+
+    def make_simulation(self):
+        """
+    
+        """
+        # Simulation setup
+        try:
+            platform = mm.Platform.getPlatformByName('CPU')  
+            print ("# Running on GPU") 
+        except Exception as e:
+            platform = mm.Platform.getPlatformByName('CPU')
+            print ("# CUDA Platform not available; running on CPU") 
+
+        integrator = mm.LangevinIntegrator(self.temperature, 1/unit.picosecond, self.timestep)
+        simulation = app.Simulation(self.topology, self.system, integrator, platform)
+
+        # Set initial positions
+        box_size = self.box
+        min_box_size = np.min(box_size)
+        n_particles = sum([v['nmol'] for k,v in self.components.items()])
+        positions = np.random.uniform(low=-min_box_size/2, high=min_box_size/2, \
+                                          size=(n_particles, 3))
+        print("# Number of positions provided:", len(positions))
+        simulation.context.setPositions(positions * unit.nanometer)
+        self.simulation = simulation
+
+    def run(self):
+        """
+        """
+        # Minimize energy
+        print("Minimizing energy...")
+        self.simulation.minimizeEnergy()
