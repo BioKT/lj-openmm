@@ -93,9 +93,12 @@ class Sim(object):
 
         """
         # Lennard-Jones parameters
+        cutoff = 1. * unit.nanometer
         for k, v in self.components.items():
             self.components[k]['sigma'] *= unit.nanometer
             self.components[k]['epsilon'] *= unit.kilojoule_per_mole 
+            if cutoff < 3*self.components[k]['sigma']:
+                cutoff = 3*self.components[k]['sigma']
 
         # Create a nonbonded force for Lennard-Jones interactions
         nonbonded = mm.NonbondedForce()
@@ -126,6 +129,7 @@ class Sim(object):
                         except Exception as e:
                             print (e)
                             sys.exit()
+
         self.system.addForce(nonbonded)
         print ("# Generated force field")
 
@@ -141,12 +145,16 @@ class Sim(object):
             platform = mm.Platform.getPlatformByName('CPU')
             print ("# CUDA Platform not available; running on CPU")
 
-        if self.pressure:
+        try:
+            print ("# Adding MC barostat: %g bar"%self.pressure)
             self.system.addForce(mm.MonteCarloBarostat(self.pressure * unit.bar,\
                                 self.temperature * unit.kelvin))
-            
+        except AttributeError as e:
+            print ("# Running without a barostat")
+
+        print ("# Using a Langevin integrator at %g K"%self.temperature)
         integrator = mm.LangevinIntegrator(self.temperature * unit.kelvin, \
-                                1/unit.picosecond, self.timestep)
+                                self.friction/unit.picosecond, self.timestep)
         simulation = app.Simulation(self.topology, self.system, integrator, platform)
 
         # Set initial positions
@@ -178,28 +186,28 @@ class Sim(object):
         self.simulation.reporters.append(app.DCDReporter(froot + \
                             '_equil.dcd', 100))
 
-        if self.pressure:
-            # Equilibration in NPT
-            self.simulation.context.setVelocitiesToTemperature(self.temperature)
-            self.simulation.context.setPositions(positions)
-            print("# Equilibrating...")
-            self.simulation.step(self.equilibration_steps)
+        # Equilibration
+        self.simulation.context.setVelocitiesToTemperature(self.temperature)
+        self.simulation.context.setPositions(positions)
+        print("# Equilibrating...")
+        self.simulation.step(self.equilibration_steps)
 
-            positions = self.simulation.context.getState(getPositions=True).getPositions()
-            with open(froot + "_equil.pdb", "w") as f:
-                PDBFile.writeFile(self.simulation.topology, positions, f)
+        positions = self.simulation.context.getState(getPositions=True).getPositions()
+        with open(froot + "_equil.pdb", "w") as f:
+            PDBFile.writeFile(self.simulation.topology, positions, f)
 
         # Remove the MC barostat
-        if self.pressure:
+        try:
             forces = self.simulation.system.getForces()
             for c, f in enumerate(forces):
                 if isinstance(f, mm.MonteCarloBarostat):
+                    print ("# Removing barostat for production")
                     self.simulation.system.removeForce(c)
-
+        except AttributeError as e:
+            pass
 
         # Production run in NVT
         print("# Production run...")
-
         self.simulation.reporters = []
         self.simulation.reporters.append(app.StateDataReporter(froot + "_prod.csv", 
                             self.report_interval, time=True, potentialEnergy=True, \

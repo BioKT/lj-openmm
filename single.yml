@@ -3,15 +3,16 @@ box:
 - 10
 - 10
 report_interval: 100
-pressure: 1
+pressure: 1.
+friction: 0.1
 temperature: 300
 equilibration_steps: 200000
 production_steps: 1000000
-timestep: 1
+timestep: 0.001
 output_name: 'lj_single'
 components:
   A: 
     nmol: 500
-    mass: 100000
-    sigma: 0.5
-    epsilon: 4.5 
+    mass: 39.948 
+    sigma: 0.33952
+    epsilon: 0.27678 
