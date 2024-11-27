@@ -146,7 +146,7 @@ class Sim(object):
             print ("# CUDA Platform not available; running on CPU")
 
         try:
-            print ("# Adding MC barostat: %g bar"%self.pressure)
+            print ("# Adding MC barostat: P = %g bar"%self.pressure)
             self.system.addForce(mm.MonteCarloBarostat(self.pressure * unit.bar,\
                                 self.temperature * unit.kelvin))
         except AttributeError as e:
@@ -203,8 +203,10 @@ class Sim(object):
                 if isinstance(f, mm.MonteCarloBarostat):
                     print ("# Removing barostat for production")
                     self.simulation.system.removeForce(c)
+                    self.simulation.context.reinitialize(preserveState=True)
         except AttributeError as e:
             pass
+
 
         # Production run in NVT
         print("# Production run...")
