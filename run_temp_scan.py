@@ -2,9 +2,9 @@ import sys
 import yaml
 import lj_openmm
 #test
-for system in ["argon"]:
+for system in ["neon", "methane", "krypton", "xenon"]:
     template = "data/%s_L20.yml"%system
-    for t in range(150,190,10):
+    for t in range(10,50,10):
         with open(template, "r") as f:
             try:
                 inp = yaml.safe_load(f)
